@@ -1,0 +1,5 @@
+* Projekts izmanto node.js, Express, socket.io
+
+* Lai palaistu - 'node app.js'
+* Lai atvērtu spēli, pārlūkprogrammā jāatver 3 cilnes 'http://localhost:2000/' (šobrīd spēle ir ierobežota priekš 3 cilvēkiem)
+* Lai sāktos spēle, katrā cilnē jāievada savs vārds un jāspiež 'JoinGame' poga, līdz ko 3 spēlētāji būs pievienojušies, spēle sāksies

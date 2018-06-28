@@ -1,0 +1,1107 @@
+<canvas id="ctx" width="800" height="600" style="border:1px solid #000000;"></canvas>
+
+<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script>
+    var canvas = document.getElementById("ctx");
+    var ctx = canvas.getContext("2d");
+    ctx.font = '30 px Arial';
+
+    var socket = io();
+    var random = Math.random();
+    
+    var speletaji=[];
+    var kartis=[];
+    var galds=[];
+    var galds2=[];
+    var cardPointer=-1;
+    var cardPointerTable=-1;
+    var cardOffsetY=15;
+    var cardOffsetX = ((800-20)-150)/6;
+    var cardY=450;
+    var tableCardY=250;
+    var counter1=2;
+    var counterAdder1=1;
+    var varPadotTalak=false;
+    var speleSakta=false;
+    
+    var cardWidth=20;
+    var lastCardWidth=70;
+    
+    var tableX=5;
+    var tableY=200;
+    var tableW=790;
+    var tableH=180;
+    var table2offsetX=25;
+    var table2offsetY=20;
+    var tablePointer=false;
+    var kavasKartis=52-6*3;
+    
+    var buttonPointer=false;
+    var btnEnabled=false;
+    var btnX=20;
+    var btnY=390;
+    var btnW=120;
+    var btnH=30;
+    
+    var buttonPointer2=false;
+    var btn2X=150;
+    var btn2Y=390;
+    var btn2W=120;
+    var btn2H=30;
+    //rezhimi
+    var skatas=true;
+    var gajiens=false;
+    var piemet=false;
+    var kauj=false;
+    
+    var trumpjaZime;
+    var trumpjaVertiba;
+    
+    var kautKarti = function(galdaKarts, speletajaKarts){
+        socket.emit('kautKarti',{
+            galdaKarts:galdaKarts,
+            speletajaKarts:speletajaKarts
+        });
+    }
+    var padotTalak = function(kartis){
+        socket.emit('padotTalak',kartis);
+    }
+    var paceltKartis = function(){
+        socket.emit('paceltKartis');
+    }
+    var selectedCards=[];
+    socket.emit('happy');
+    
+    izveidotGaldu2 = function () {
+        for(var i=0; i<6; i++){
+            galds2.push({
+                zime:null,
+                vertiba:null
+            });
+        }
+    }
+    izveidotGaldu2();
+    
+    var happy2 = function(){
+        socket.emit('happy2',{
+            reason:'its my birthday ' + random
+        });
+    }
+    var joinGame = function(){
+        var name=document.getElementById("vards").value;
+        if(name.length>0){
+            if(name.length<=16){
+                socket.emit('joinGame',{
+                    vards:name
+                });
+            }
+            else{
+                alert("Ievaditais vards ir par garu (max 16 rakstzimes)");
+            }
+        }
+        else{
+            alert("Pirms pievienojies spelei, ievadi savu vardu");
+        }
+    }
+    var selCards = function(){
+        console.log('Izveletas kartis: ' + selectedCards.length);
+    }
+    var piemest = function(){
+        var kartis_tmp=[];
+        
+        for(var i=0; i<selectedCards.length; i++){
+            for(var j=0; j<galds.length;j++){
+                if(kartis[selectedCards[i]].vertiba==galds[j].vertiba || kartis[selectedCards[i]].vertiba==galds2[j].vertiba){
+                    kartis_tmp.push(kartis[selectedCards[i]]);
+                    break;
+                }
+            }
+        }
+        selectedCards=[];
+        socket.emit('piemestKartis',kartis_tmp);
+    }
+    var go = function(){
+        //var pack=[];
+        galds=[];
+        var kartis_tmp=[];
+        for(var i=0; i<selectedCards.length; i++){
+            galds.push(kartis[selectedCards[i]]);
+        }
+        /*
+        //Iznjem speletaja izspeletas kartis no rokas
+        for(var i=0; i<kartis.length; i++){
+            var pievienot=true;
+            for(var j=0; j<selectedCards.length; j++){
+                if(i==selectedCards[j]){
+                    pievienot=false;
+                    break;
+                }
+            }
+            if(pievienot)
+                kartis_tmp.push(kartis[i]);
+        }
+        */
+        socket.emit('gajiens',galds);
+        selectedCards=[];
+        //kartis=kartis_tmp;
+    }
+    
+    var checkMouseForCards = function(x, y){
+        cardPointer=-1;
+        for(var i=10; i<cardWidth*kartis.length+10; i+=cardWidth){
+            if(i==cardWidth*(kartis.length-1)+10){
+                if(x>=i && x<i+lastCardWidth && y>=cardY && y<cardY+100){
+                    cardPointer=Math.floor((i-10)/cardWidth);
+                }
+            }
+            else{
+                if(x>=i && x<i+cardWidth && y>=cardY && y<cardY+100){
+                    cardPointer=Math.floor((i-10)/cardWidth);
+                }
+            }
+        }
+
+    }
+    var checkMouseForTableCards = function(x, y){
+        cardPointerTable=-1;
+        if(kauj){
+            if(varPadotTalak){
+                for(var i=10; i<cardOffsetX*(galds.length+1)+10; i+=cardOffsetX){
+                        if(x>=i && x<i+lastCardWidth && y>=tableCardY && y<tableCardY+100){
+                            cardPointerTable=Math.floor((i-10)/cardOffsetX);
+                        }
+                }
+            }
+            else{
+                for(var i=10; i<cardOffsetX*galds.length+10; i+=cardOffsetX){
+                        if(x>=i && x<i+lastCardWidth && y>=tableCardY && y<tableCardY+100){
+                            cardPointerTable=Math.floor((i-10)/cardOffsetX);
+                        }
+                }
+            }
+            //console.log('CardPointerTable: ' + cardPointerTable);
+        }
+    }
+    var getVertiba = function(vertiba){
+        var tmp;
+        switch (vertiba) {
+        case '2':
+            tmp=2;
+            break;
+        case '3':
+            tmp=3;
+            break;
+        case '4':
+            tmp=4;
+            break;
+        case '5':
+            tmp=5;
+            break;
+        case '6':
+            tmp=6;
+            break;
+        case '7':
+            tmp=7;
+            break;
+        case '8':
+            tmp=8;
+            break;
+        case '9':
+            tmp=9;
+            break;
+        case '10':
+            tmp=10;
+            break;
+        case 'J':
+            tmp=11;
+            break;
+        case 'Q':
+            tmp=12;
+            break;
+        case 'K':
+            tmp=13;
+            break;
+        case 'A':
+            tmp=14;
+            break;
+        default:
+            tmp=-1;
+            break;
+        }
+        return tmp;
+    }
+    var checkMouseForTable = function(x, y){
+        tablePointer=false;
+        if(x>=tableX && x<tableX+tableW && y>=tableY && y<tableY+tableH)
+            tablePointer=true;
+    }
+    var checkMouseForButton = function(x, y){
+        buttonPointer=false;
+        if(x>=btnX && x<btnX+btnW && y>=btnY && y<btnY+btnH)
+            buttonPointer=true;
+    }
+    /*var checkMouseForButton2 = function(x, y){
+        buttonPointer2=false;
+        if(x>=btn2X && x<btn2X+btn2W && y>=btn2Y && y<btn2Y+btn2H)
+            buttonPointer2=true;
+    }*/
+    var drawTableBorder = function(x,y,w,h,counter,cardsSelected){
+        ctx.fillStyle="#000000";
+        //ctx.beginPath();
+        //for(var i=0; i<20; i++){
+        //    ctx.moveTo(x+i*(w/20)+(w/80)*counter,y);
+        //    ctx.lineTo(x+i*(w/20)+w/40+(w/80)*counter,y);
+        //}
+        
+        if(cardsSelected)
+            ctx.lineWidth = counter;
+        else
+            ctx.lineWidth = 1;
+        ctx.strokeRect(x,y,w,h);
+        //ctx.stroke();
+        ctx.lineWidth = 1;
+    }
+    var drawTableCardBorder = function(counter){
+            ctx.fillStyle="#000000";
+            ctx.lineWidth = counter;
+            if(varPadotTalak){
+                for(var i=0; i<galds.length+1; i++){
+                        ctx.strokeRect(10+i*cardOffsetX-3,tableCardY-3,lastCardWidth+6,100+6);
+                }
+            }
+            else{
+                for(var i=0; i<galds.length; i++){
+                    if(galds2[i].zime==null)
+                        ctx.strokeRect(10+i*cardOffsetX-3,tableCardY-3,lastCardWidth+6,100+6);
+                }
+            }
+            ctx.lineWidth = 1;
+
+    }
+    var drawSpeletaji = function(){
+        ctx.fillStyle="#000000";
+        
+        ctx.lineWidth = 1;
+        for(var i=0; i<speletaji.length; i++){
+            ctx.font='bold 12px Arial';
+            ctx.fillText(speletaji[i][0], 10+i*120, 40);
+            ctx.font='12px Arial';
+            ctx.fillText(speletaji[i][1] + ' kartis', 10+i*120, 56);
+            ctx.font='italic 12px Arial';
+            if(speletaji[i][2]==0){
+                ctx.fillText('Skatas', 10+i*120, 72);
+            }
+            else if(speletaji[i][2]==1){
+                ctx.fillText('Iet', 10+i*120, 72);
+            }
+            else if(speletaji[i][2]==2){
+                ctx.fillText('Kauj', 10+i*120, 72);
+            }
+            else{
+                ctx.fillText('Beidzis speli', 10+i*120, 72);
+            }
+        }
+    }
+    var drawKava = function(x,y,w,h,r,kavasKarsuSkaits){
+            ctx.font='14px Arial';
+            ctx.fillStyle="#000000";
+            ctx.fillText('Kartis: ' + kavasKarsuSkaits, x, y-32);
+            ctx.fillText('Trumpis:', x, y-16);
+            if(trumpjaZime=='Ercens'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♥', x+60, y-16);
+            }
+            else if(trumpjaZime=='Kreicis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♣', x+60, y-16);
+            }
+            else if(trumpjaZime=='Karavs'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♦', x+60, y-16);
+            }
+            else if(trumpjaZime=='Pikis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♠', x+60, y-16);
+            }
+            
+        if(kavasKarsuSkaits==1){
+            ctx.font='20px Arial';
+            if(trumpjaZime=='Ercens'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♥', x+cardWidth/8, y+35);
+            }
+            else if(trumpjaZime=='Kreicis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♣', x+cardWidth/8, y+35);
+            }
+            else if(trumpjaZime=='Karavs'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♦', x+cardWidth/8, y+35);
+            }
+            else if(trumpjaZime=='Pikis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♠', x+cardWidth/8, y+35);
+            }
+            ctx.fillText(trumpjaVertiba, x+cardWidth/8, y+20);
+            
+            ctx.fillStyle="#000000";
+            ctx.beginPath();
+            ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+            ctx.moveTo(x+r,y);
+            ctx.lineTo(x+w-r,y);
+
+        
+            ctx.arc(x+w-r,y+r,r,1.5*Math.PI,2*Math.PI);
+            ctx.moveTo(x+w,y+r);
+            ctx.lineTo(x+w,y+h-r);
+
+        
+
+            ctx.arc(x+w-r,y+h-r,r,0,0.5*Math.PI);
+            ctx.moveTo(x+w-r,y+h);
+            ctx.lineTo(x+r,y+h); 
+
+        
+
+            ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+            ctx.moveTo(x,y+h-r);
+            ctx.lineTo(x,y+r); 
+
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        else if(kavasKarsuSkaits>1){
+            ctx.font='20px Arial';
+            if(trumpjaZime=='Ercens'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♥', x+cardWidth/8, y+35);
+            }
+            else if(trumpjaZime=='Kreicis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♣', x+cardWidth/8, y+35);
+            }
+            else if(trumpjaZime=='Karavs'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♦', x+cardWidth/8, y+35);
+            }
+            else if(trumpjaZime=='Pikis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♠', x+cardWidth/8, y+35);
+            }
+            ctx.fillText(trumpjaVertiba, x+cardWidth/8, y+20);
+            
+            ctx.fillStyle="#000000";
+            ctx.beginPath();
+            ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+            ctx.moveTo(x+r,y);
+            ctx.lineTo(x+w-r,y);
+
+        
+            ctx.arc(x+w-r,y+r,r,1.5*Math.PI,2*Math.PI);
+            ctx.moveTo(x+w,y+r);
+            ctx.lineTo(x+w,y+h/2);
+
+            ctx.moveTo(x,y+h/2);
+            ctx.lineTo(x,y+r); 
+
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(x+w/2-h/2+r,y+h/2+r,r,Math.PI,1.5*Math.PI);
+            ctx.moveTo(x+w/2-h/2+r,y+h/2);
+            ctx.lineTo(x+w/2+h/2-r,y+h/2);
+            
+            ctx.arc(x+w/2+h/2-r,y+h/2+r,r,1.5*Math.PI,2*Math.PI);
+            ctx.moveTo(x+w/2+h/2,y+h/2+r);
+            ctx.lineTo(x+w/2+h/2,y+h/2+w-r);
+            
+            ctx.arc(x+w/2+h/2-r,y+h/2+w-r,r,0,0.5*Math.PI);
+            ctx.moveTo(x+w/2+h/2-r,y+h/2+w);
+            ctx.lineTo(x+w/2-h/2+r,y+h/2+w);
+            
+            ctx.arc(x+w/2-h/2+r,y+h/2+w-r,r,0.5*Math.PI,Math.PI);
+            ctx.moveTo(x+w/2-h/2,y+h/2+w-r);
+            ctx.lineTo(x+w/2-h/2,y+h/2+r); 
+            
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    }
+    var drawCardOnTable = function(x,y,w,h,r, irKartsVirsu){
+        if(irKartsVirsu){
+            ctx.beginPath();
+            ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+            ctx.moveTo(x+r,y);
+            ctx.lineTo(x+w-r,y);
+
+        
+            ctx.arc(x+w-r,y+r,r,1.5*Math.PI,2*Math.PI);
+            ctx.moveTo(x+w,y+r);
+            ctx.lineTo(x+w,y+table2offsetY);
+
+        
+
+            //ctx.arc(x+w-r,y+h-r,r,0,0.5*Math.PI);
+            ctx.moveTo(x+table2offsetX,y+h);
+            ctx.lineTo(x+r,y+h); 
+
+        
+
+            ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+            ctx.moveTo(x,y+h-r);
+            ctx.lineTo(x,y+r); 
+
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        else{
+            ctx.beginPath();
+            ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+            ctx.moveTo(x+r,y);
+            ctx.lineTo(x+w-r,y);
+
+        
+            ctx.arc(x+w-r,y+r,r,1.5*Math.PI,2*Math.PI);
+            ctx.moveTo(x+w,y+r);
+            ctx.lineTo(x+w,y+h-r);
+
+        
+
+            ctx.arc(x+w-r,y+h-r,r,0,0.5*Math.PI);
+            ctx.moveTo(x+w-r,y+h);
+            ctx.lineTo(x+r,y+h); 
+
+        
+
+            ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+            ctx.moveTo(x,y+h-r);
+            ctx.lineTo(x,y+r); 
+
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+    }
+    
+    var drawCard = function(x,y,w,h,r, lineWidth, drawingCardNum){
+        var cardOffsetY2=15;
+        ctx.beginPath();
+        if(drawingCardNum<kartis.length-1){//ja karts kuru zime nav pedejaa
+            if(drawingCardNum != cardPointer && drawingCardNum != cardPointer-1){//ja karts nav zem peles
+                    ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+                    ctx.moveTo(x+r,y);
+                    ctx.lineTo(x+w+r,y);
+
+        
+                    //ctx.arc(x-r+lastCardWidth,y+r,r,1.5*Math.PI,2*Math.PI);
+                    //ctx.moveTo(x+w,y+r);
+                    //ctx.lineTo(x+w,y+cardOffsetY);
+
+        
+
+                    //ctx.arc(x+w-r,y+h-r,r,0,0.5*Math.PI);
+                    ctx.moveTo(x+w+r,y+h);
+                    ctx.lineTo(x+r,y+h); 
+
+        
+
+                    ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+                    ctx.moveTo(x,y+h-r);
+                    ctx.lineTo(x,y+r); 
+
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+            }
+            else if(drawingCardNum == cardPointer){
+                    ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+                    ctx.moveTo(x+r,y);
+                    ctx.lineTo(x+lastCardWidth-r,y);
+
+        
+                    ctx.arc(x-r+lastCardWidth,y+r,r,1.5*Math.PI,2*Math.PI);
+                    ctx.moveTo(x+lastCardWidth,y+r);
+                    ctx.lineTo(x+lastCardWidth,y+cardOffsetY2);
+
+        
+
+                    //ctx.arc(x+w-r,y+h-r,r,0,0.5*Math.PI);
+                    ctx.moveTo(x+w,y+h);
+                    ctx.lineTo(x+r,y+h); 
+
+        
+
+                    ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+                    ctx.moveTo(x,y+h-r);
+                    ctx.lineTo(x,y+r); 
+
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+            }
+            else if(drawingCardNum == cardPointer-1){
+                if(cardPointer!=kartis.length-1){
+                    ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+                    ctx.moveTo(x+r,y);
+                    ctx.lineTo(x+w,y);
+
+        
+                    //ctx.arc(x-r+lastCardWidth,y+r,r,1.5*Math.PI,2*Math.PI);
+                    //ctx.moveTo(x+w,y+r);
+                    //ctx.lineTo(x+w,y+cardOffsetY);
+
+        
+
+                    //ctx.arc(x+w-r,y+h-r,r,0,0.5*Math.PI);
+                    ctx.moveTo(x+w+w+r,y+h);
+                    ctx.lineTo(x+r,y+h); 
+
+        
+
+                    ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+                    ctx.moveTo(x,y+h-r);
+                    ctx.lineTo(x,y+r); 
+
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+                }
+                else{
+                    ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+                    ctx.moveTo(x+r,y);
+                    ctx.lineTo(x+w,y);
+
+        
+                    //ctx.arc(x-r+lastCardWidth,y+r,r,1.5*Math.PI,2*Math.PI);
+                    //ctx.moveTo(x+w,y+r);
+                    //ctx.lineTo(x+w,y+cardOffsetY);
+
+        
+                    ctx.moveTo(x+lastCardWidth,y+h-cardOffsetY2);
+                    ctx.lineTo(x+lastCardWidth,y+h-r); 
+                    
+                    ctx.arc(x+lastCardWidth-r,y+h-r,r,0,0.5*Math.PI);
+                    ctx.moveTo(x+lastCardWidth-r,y+h);
+                    ctx.lineTo(x+r,y+h); 
+
+        
+
+                    ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+                    ctx.moveTo(x,y+h-r);
+                    ctx.lineTo(x,y+r); 
+
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+                }
+            }
+
+        }
+        else{
+                    ctx.arc(x+r,y+r,r,Math.PI,1.5*Math.PI);
+                    ctx.moveTo(x+r,y);
+                    ctx.lineTo(x+lastCardWidth-r,y);
+
+        
+                    ctx.arc(x+lastCardWidth-r,y+r,r,1.5*Math.PI,2*Math.PI);
+                    ctx.moveTo(x+lastCardWidth,y+r);
+                    ctx.lineTo(x+lastCardWidth,y+h-r);
+
+        
+
+                    ctx.arc(x+lastCardWidth-r,y+h-r,r,0,0.5*Math.PI);
+                    ctx.moveTo(x+lastCardWidth-r,y+h);
+                    ctx.lineTo(x+r,y+h); 
+
+        
+
+                    ctx.arc(x+r,y+h-r,r,0.5*Math.PI,Math.PI);
+                    ctx.moveTo(x,y+h-r);
+                    ctx.lineTo(x,y+r); 
+
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+        }
+
+    }
+    var checkClick = function(){
+    
+        if(gajiens){
+            if(cardPointer != -1){//ja karts ir izveleta
+                var addSelectedCard=true;
+                
+                //Parbauda vai vienu karti neizvelas divreiz
+                for(var i=0; i<selectedCards.length; i++){
+                    if(selectedCards[i]==cardPointer){
+                        console.log('** Card ' + selectedCards[i] + ' already selected **')
+                        addSelectedCard=false;
+                        break;
+                    }
+                }
+                //parbauda vai tadu karti var dot (vai vertiba ir tada pasha ka iepriekshejai izveletajai)
+                if(selectedCards.length>0 && addSelectedCard){
+                    if(kartis[selectedCards[selectedCards.length-1]].vertiba != kartis[cardPointer].vertiba){
+                        addSelectedCard=false;
+                        console.log('** Cant go with card which has different value **');
+                    }
+                }
+                
+                if(addSelectedCard)
+                    selectedCards.push(cardPointer);
+                //console.log(selectedCards);
+            }
+            else if(tablePointer){
+                go();
+            }
+        }
+        else if(kauj){
+            if(cardPointer != -1){//ja karts ir izveleta
+                var addSelectedCard=true;
+                
+                //Parbauda vai vienu karti neizvelas divreiz
+                for(var i=0; i<selectedCards.length; i++){
+                    if(selectedCards[i]==cardPointer){
+                        console.log('** Card ' + selectedCards[i] + ' already selected **')
+                        addSelectedCard=false;
+                        break;
+                    }
+                }
+                //parbauda vai tadu karti var dot (vai vertiba ir tada pasha ka iepriekshejai izveletajai)
+                if(selectedCards.length>0 && addSelectedCard){
+                    if(kartis[selectedCards[selectedCards.length-1]].vertiba != kartis[cardPointer].vertiba){
+                        addSelectedCard=false;
+                        console.log('** Cant go with card which has different value **');
+                    }
+                }
+                if(addSelectedCard)
+                    selectedCards.push(cardPointer);
+            }
+            else if(cardPointerTable != -1){//ja uzspiezh kartij uz galda
+                //console.log(galds[cardPointerTable].vertiba);
+                //console.log(getVertiba(galds[cardPointerTable].vertiba));
+                
+                //ja zime vienada tad parbauda vai kavas karts vertiba ir lielaka
+                //ja zime nav vienada tad parbauda vai kavas karts zime ir trumpis
+                if(selectedCards.length==1){
+                    if(cardPointerTable<galds.length){
+                            if(galds[cardPointerTable].zime == kartis[selectedCards[0]].zime){//ja kartim ir vienadas zimes
+                                if(getVertiba(kartis[selectedCards[0]].vertiba) > getVertiba(galds[cardPointerTable].vertiba)){
+                                    kautKarti(galds[cardPointerTable], kartis[selectedCards[0]]);
+                                    selectedCards=[];
+                                }
+                                else{
+                                    console.log("** Nevar kaut ar mazakas vertibas karti **");
+                                    selectedCards=[];
+                                }
+                            }
+                            else{//ja kartim nav vienadas zimes
+                                if(kartis[selectedCards[0]].zime == trumpjaZime){//parbauda vai kauj ar trumpi
+                                    kautKarti(galds[cardPointerTable], kartis[selectedCards[0]]);
+                                    selectedCards=[];
+                                }
+                                else{
+                                    console.log("** Nevar kaut ar shadu karti **");
+                                    selectedCards=[];
+                                }
+                            }
+
+                    }
+                    else{
+                        //ja karti ieliek padoshanas ailee
+                        var turpinat=true;
+                        for(var i=0; i<galds.length; i++){//parbauda vai visas kartis uz galda ir ar tadu pashu vertibu ka kartij ar kuru padod talak
+                            if(galds[i].vertiba != kartis[selectedCards[0]].vertiba){
+                                turpinat=false;
+                                break;
+                            }
+                        }
+                        if(turpinat){
+                            //console.log("TAGAD PADOD TALAK");
+                            padotTalak([kartis[selectedCards[0]]]);
+                            selectedCards=[];
+                            
+
+                        }
+                        else{
+                            console.log("** Nevar padot talak ar shadu karti **");
+                            selectedCards=[];
+                        }
+                        
+                    }
+
+                }
+                else{//ja izveletas vairakas kartis
+                    if(cardPointerTable<galds.length){
+                        console.log("** Nevar kaut ar vairakam kartim vienlaicigi **");
+                        selectedCards=[];
+                    }
+                    else{//ja padoshanas ailee ieliek vairakas kartis vienalaicigi
+                    
+                        var turpinat=true;
+                        for(var i=0; i<galds.length; i++){//parbauda vai visas kartis uz galda ir ar tadu pashu vertibu ka kartis ar kuraam padod talak
+                            for(var j=0; j<selectedCards.length; j++){
+                                if(galds[i].vertiba != kartis[selectedCards[j]].vertiba){
+                                    turpinat=false;
+                                    break;
+                                }
+                            }
+                        }
+                        if(turpinat){
+                            var kartis_tmp=[];
+                            for(var i=0; i<selectedCards.length; i++){
+                                kartis_tmp.push(kartis[selectedCards[i]]);
+                            }
+                            padotTalak(kartis_tmp);
+                            selectedCards=[];
+                        }
+                        else{
+                            console.log("** Nevar padot talak ar shadam kartim **");
+                            selectedCards=[];
+                        }
+                    
+                    }
+                }
+            }
+            else if(buttonPointer){
+                //Ja pacelj kartis
+                paceltKartis();
+            }
+        
+        }
+        else if(piemet){//ja piemeshanas (skatishanaas) rezhiimaa
+            if(cardPointer != -1){//ja karts ir izveleta
+                var addSelectedCard=true;
+                
+                //Parbauda vai vienu karti neizvelas divreiz
+                for(var i=0; i<selectedCards.length; i++){
+                    if(selectedCards[i]==cardPointer){
+                        console.log('** Card ' + selectedCards[i] + ' already selected **')
+                        addSelectedCard=false;
+                        break;
+                    }
+                }
+                //parbauda vai tadu karti var dot (vai vertiba ir tada pasha ka iepriekshejai izveletajai)
+                if(selectedCards.length>0 && addSelectedCard){
+                    if(kartis[selectedCards[selectedCards.length-1]].vertiba != kartis[cardPointer].vertiba){
+                        addSelectedCard=false;
+                        console.log('** Cant go with card which has different value **');
+                    }
+                }
+                
+                if(addSelectedCard)
+                    selectedCards.push(cardPointer);
+            }
+            else if(tablePointer){
+                piemest();
+            }
+            else if(buttonPointer){
+                //ja vairs nemet kartis
+                socket.emit('beigtGajienu');
+            }
+        }
+    }
+    var drawButton = function(x,y,w,h,buttonPointer,text){
+        ctx.font='16px Arial';
+        if(buttonPointer){
+            ctx.fillStyle="#000000";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x,y,w,h);
+            ctx.fillText(text, x+10, y+20);
+        }
+        else{
+            ctx.fillStyle="#000000";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x,y,w,h);
+            
+            ctx.fillText(text, x+10, y+20);
+        }
+    }
+    var drawTable = function(){
+        
+        for(var i=0; i<galds.length; i++){
+            if(galds2[i].zime==null)
+                drawCardOnTable(10+i*cardOffsetX,tableCardY,lastCardWidth,100,5,false);
+            else
+                drawCardOnTable(10+i*cardOffsetX,tableCardY,lastCardWidth,100,5,true);
+            
+            if(galds[i].zime=='Ercens'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♥', 10+i*cardOffsetX+cardWidth/8, tableCardY+35);
+            }
+            else if(galds[i].zime=='Kreicis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♣', 10+i*cardOffsetX+cardWidth/8, tableCardY+35);
+            }
+            else if(galds[i].zime=='Karavs'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♦', 10+i*cardOffsetX+cardWidth/8, tableCardY+35);
+            }
+            else if(galds[i].zime=='Pikis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♠', 10+i*cardOffsetX+cardWidth/8, tableCardY+35);
+            }
+            ctx.fillText(galds[i].vertiba, 10+i*cardOffsetX+cardWidth/8, tableCardY+20);
+        }
+    }
+    var drawTable2 = function(){
+        for(var i=0; i<6; i++){
+            //console.log('i: ' + i);
+            if(galds2[i].zime != null){
+            drawCardOnTable(10+i*cardOffsetX+table2offsetX,tableCardY+table2offsetY,lastCardWidth,100,5,false);
+            
+            if(galds2[i].zime=='Ercens'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♥', 10+i*cardOffsetX+cardWidth/8+table2offsetX, tableCardY+35+table2offsetY);
+            }
+            else if(galds2[i].zime=='Kreicis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♣', 10+i*cardOffsetX+cardWidth/8+table2offsetX, tableCardY+35+table2offsetY);
+            }
+            else if(galds2[i].zime=='Karavs'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♦', 10+i*cardOffsetX+cardWidth/8+table2offsetX, tableCardY+35+table2offsetY);
+            }
+            else if(galds2[i].zime=='Pikis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♠', 10+i*cardOffsetX+cardWidth/8+table2offsetX, tableCardY+35+table2offsetY);
+            }
+            ctx.fillText(galds2[i].vertiba, 10+i*cardOffsetX+cardWidth/8+table2offsetX, tableCardY+20+table2offsetY);
+            }
+        }
+    }
+    var drawCards = function(){
+        //ctx.clearRect(0,0,800,600);
+        //cardWidth=(canvas.width-20-lastCardWidth)/kartis.length;
+        cardWidth=25;
+        //console.log();
+        //cardWidth=(canvas.width-20)/kartis.length;
+        var lineWidth=1;
+        
+        ctx.font='20px Arial';
+        for(var i=0; i<kartis.length; i++){
+        
+            if(i==cardPointer)
+                cardOffsetY=15;
+            else
+                cardOffsetY=0;
+
+            if(kartis[i].zime=='Ercens'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♥', 10+i*cardWidth+cardWidth/8, cardY+35-cardOffsetY);
+            }
+            else if(kartis[i].zime=='Kreicis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♣', 10+i*cardWidth+cardWidth/8, cardY+35-cardOffsetY);
+            }
+            else if(kartis[i].zime=='Karavs'){
+                ctx.fillStyle="#FF0000";
+                ctx.fillText('♦', 10+i*cardWidth+cardWidth/8, cardY+35-cardOffsetY);
+            }
+            else if(kartis[i].zime=='Pikis'){
+                ctx.fillStyle="#000000";
+                ctx.fillText('♠', 10+i*cardWidth+cardWidth/8, cardY+35-cardOffsetY);
+            }
+
+            ctx.fillText(kartis[i].vertiba, 10+i*cardWidth+cardWidth/8, cardY+20-cardOffsetY);
+            //console.log('Zime ' +kartis[i].zime);
+            //var img=document.getElementById("card");
+            //ctx.drawImage(img,100,60*(i+1),150,180);
+           // if(i==kartis.length-1){
+            //    drawCard(10+i*cardWidth,60-cardOffsetY,lastCardWidth,100,5,lineWidth,i);
+            //}
+            //else{
+                drawCard(10+i*cardWidth,/*(i*40)+*/cardY-cardOffsetY,cardWidth,100,5,lineWidth,i);
+            //}
+            
+        }
+    }
+    socket.on('serverMsg', function(data){
+        console.log(data.msg);
+    });
+    socket.on('btnChangeState', function(data){
+        btnEnabled=data.state;
+    });
+    
+    socket.on('sanemKartis', function(data){
+        console.log("Sanjemtas " + data.length + " kartis: ");
+        for(var i=0; i<data.length; i++)
+            console.log(data[i]);
+        kartis=data;
+        
+    });
+    socket.on('trumpis', function(data){
+        trumpjaZime=data.zime;
+        trumpjaVertiba=data.vertiba;
+        console.log("** TRUMPIS - " + trumpjaZime + " **");
+        
+    });
+    socket.on('sanemKartisUzGalda', function(data){
+        console.log('dati sanjemti (1): ' + data);
+        galds=data;
+    });
+    socket.on('sanemKartisUzGalda2', function(data){
+        console.log('dati sanjemti (2): ' + data);
+        galds2=data;
+    });
+    socket.on('skatities', function(){
+    //kartis=data;
+        gajiens=false;
+        kauj=false;
+        piemet=false;
+        skatas=true;
+    });
+    socket.on('sanemKavu', function(data){
+        kavasKartis=data.skaits;
+    });
+
+    socket.on('gajiens', function(){
+        console.log('** Tagad ir tavs gajiens **');
+        //console.log(data.length);
+        //kartis=data;
+        skatas=false;
+        kauj=false;
+        piemet=false;
+        gajiens=true;
+
+    });
+    socket.on('kauj', function(){
+        //console.log('** Tagad tev ir jakauj kartis **');
+
+        //kartis=data;
+        gajiens=false;
+        skatas=false;
+        piemet=false;
+        kauj=true;
+    });
+    socket.on('piemet', function(){
+        //console.log('** Tagad tev ir jakauj kartis **');
+
+        //kartis=data;
+        gajiens=false;
+        skatas=false;
+        kauj=false;
+        piemet=true;
+        
+    });
+    socket.on('padotChangeState', function(data){
+        varPadotTalak=data.state;
+    });
+    socket.on('uzvara', function(data){
+        speletaji[data.num][2]=3;
+        if(data.vieta<3)
+            alert("Apsveicam! Tu esi ieguvis " + data.vieta + ". vietu");
+        else
+            alert("Tu esi ieguvis " + data.vieta + ". vietu (cuuka)");
+    });
+    socket.on('sanemVardus', function(data){
+        for(var i=0; i<data.length; i++){
+            speletaji.push([data[i].vards, 6, 0]);//vards, karshu skaits, rezhims (0 - skatas, 1 - gajiens, 2 - kauj, 3 - uzvarejis)
+        }
+    });
+    socket.on('sanemRezimus', function(data){
+        for(var i=0; i<data.length; i++){
+            speletaji[i][2]=data[i].rezims;
+        }
+    });
+    socket.on('sanemKarsuSkaitu', function(data){
+        for(var i=0; i<data.length; i++){
+            speletaji[i][1]=data[i].karsuSkaits;
+        }
+    });
+    socket.on('sakt', function(data){
+        speleSakta=data.state;
+    });
+    
+    
+    
+      function writeMessage(message){
+        console.log(message);
+      }
+      
+      function getMousePos(canvas, evt) {
+        var rect = canvas.getBoundingClientRect();
+        return {
+          x: evt.clientX - rect.left,
+          y: evt.clientY - rect.top
+        };
+      }
+
+
+      canvas.addEventListener('mousemove', function(evt) {
+        var mousePos = getMousePos(canvas, evt);
+        var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
+        //writeMessage(message);
+        checkMouseForCards(mousePos.x, mousePos.y);
+        checkMouseForTableCards(mousePos.x, mousePos.y);
+        checkMouseForTable(mousePos.x, mousePos.y);
+        checkMouseForButton(mousePos.x, mousePos.y);
+        //checkMouseForButton2(mousePos.x, mousePos.y);
+        //console.log('cardPointer: ' + cardPointer);
+        }, false);
+        
+      canvas.addEventListener('click', function(evt) {
+        //var mousePos = getMousePos(canvas, evt);
+        console.log('mouse clicked');
+        //writeMessage(message);
+        checkClick();
+        //console.log('cardPointer: ' + cardPointer);
+        }, false);
+      
+    
+    setInterval(function(){
+        
+        ctx.clearRect(0,0,800,600);
+        
+        if(gajiens || piemet){
+            if(selectedCards.length>0)
+                drawTableBorder(tableX,tableY,tableW,tableH,Math.floor(counter1/4),true);
+            else
+                drawTableBorder(tableX,tableY,tableW,tableH,1,false);
+        }
+        else if(kauj){
+            if(selectedCards.length>0){
+                drawTableCardBorder(Math.floor(counter1/4));
+                drawTableBorder(tableX,tableY,tableW,tableH,1,false);
+            }
+            else
+                drawTableBorder(tableX,tableY,tableW,tableH,1,false);
+        }
+        else if(skatas){
+            drawTableBorder(tableX,tableY,tableW,tableH,1,false);
+        }
+           
+        
+        ctx.font='16px Arial';
+        ctx.fillStyle="#000000";
+        if(gajiens)
+            ctx.fillText('Tagad ir tavs gajiens.', 10, 20);
+        else if(skatas)
+            ctx.fillText('Uzgaidi...', 10, 20);
+        else if(kauj)
+            ctx.fillText('Tagad tev ir jakauj kartis.', 10, 20);
+        else if(piemet)
+            ctx.fillText('Tu vari piemest kartis.', 10, 20);
+                
+        if(speleSakta){
+            drawCards();
+            drawTable();
+            drawTable2();
+            drawSpeletaji();
+            drawKava(705,tableCardY,lastCardWidth,100, 5, kavasKartis);
+            if(btnEnabled)
+                drawButton(btnX,btnY,btnW,btnH,buttonPointer, 'Kauts');
+            if(kauj)
+                drawButton(btnX,btnY,btnW,btnH,buttonPointer, 'Pacelt kartis');
+        }
+        
+        counter1+=counterAdder1;
+        if(counter1==12 || counter1==1)
+            counterAdder1*=-1;
+    }, 1000/25);
+
+    socket.on('serverMsg2', function(){
+        console.log('sanjemta zinja no servera');
+    });
+    
+</script>
+<br>
+<form><input id="vards" type="text" value="RandomSpeletajs"></input></form>
+<button onclick="joinGame()">JoinGame</button>
+<button onclick="selCards()">Selected cards</button>
